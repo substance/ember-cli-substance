@@ -1,0 +1,1 @@
+export { default } from 'ember-cli-substance/components/editor-popup/component';
