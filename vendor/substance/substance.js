@@ -8570,29 +8570,30 @@ Substance.inherit( DocumentSchema, Data.Schema );
 module.exports = DocumentSchema;
 
 },{"../basics":115,"../data":121,"./annotation":126,"./container":130,"./container_annotation":131,"./node":142,"./text_node":147}],139:[function(require,module,exports){
+(function (global){
 "use strict";
 
 var Substance = require('../basics');
 var Annotator = require('./annotator');
 
+var Node = window.Node;
+
 function HtmlExporter(config) {
   this.config = config || {};
   this.state = null;
-
-  this.$ = window.$;
 }
 
 HtmlExporter.Prototype = function() {
 
   this.createElement = function(tagName) {
-    return window.document.createElement(tagName);
+    return global.document.createElement(tagName);
   };
 
   this.toHtml = function(doc, containerId, options) {
     options = {} || options;
     this.state =  {
       doc: doc,
-      rootElement: window.document.createElement('div'),
+      rootElement: this.createElement('div'),
       options: options
     };
     var container = doc.get(containerId);
@@ -8607,7 +8608,7 @@ HtmlExporter.Prototype = function() {
       options: options
     };
     var frag = this.annotatedText(path);
-    var div = window.document.createElement('div');
+    var div = this.createElement('div');
     div.appendChild(frag);
     var html = div.innerHTML;
     // console.log('HtmlExporter.propertyToHtml', path, html);
@@ -8620,10 +8621,10 @@ HtmlExporter.Prototype = function() {
     for (var i = 0; i < nodeIds.length; i++) {
       var node = state.doc.get(nodeIds[i]);
       var el = node.toHtml(this);
-      if (!el || (el.nodeType !== window.Node.ELEMENT_NODE)) {
+      if (!el || (el.nodeType !== Node.ELEMENT_NODE)) {
         throw new Error('Contract: Node.toHtml() must return a DOM element. NodeType: '+node.type);
       }
-      el.dataset.id = node.id;
+      el.setAttribute('data-id', node.id);
       state.rootElement.appendChild(el);
     }
   };
@@ -8631,13 +8632,13 @@ HtmlExporter.Prototype = function() {
   this.annotatedText = function(path) {
     var self = this;
     var doc = this.state.doc;
-    var fragment = window.document.createDocumentFragment();
+    var fragment = global.document.createDocumentFragment();
     var annotations = doc.getIndex('annotations').get(path);
     var text = doc.get(path);
 
     var annotator = new Annotator();
     annotator.onText = function(context, text) {
-      context.children.push(window.document.createTextNode(text));
+      context.children.push(global.document.createTextNode(text));
     };
     annotator.onEnter = function(entry) {
       var anno = entry.node;
@@ -8649,10 +8650,10 @@ HtmlExporter.Prototype = function() {
     annotator.onExit = function(entry, context, parentContext) {
       var anno = context.annotation;
       var el = anno.toHtml(self, context.children);
-      if (!el || el.nodeType !== window.Node.ELEMENT_NODE) {
+      if (!el || el.nodeType !== Node.ELEMENT_NODE) {
         throw new Error('Contract: Annotation.toHtml() must return a DOM element.');
       }
-      el.dataset.id = anno.id;
+      el.setAttribute('data-id', anno.id);
       parentContext.children.push(el);
     };
     var root = { children: [] };
@@ -8669,20 +8670,19 @@ Substance.initClass(HtmlExporter);
 
 module.exports = HtmlExporter;
 
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"../basics":115,"./annotator":129}],140:[function(require,module,exports){
+(function (global){
 var Substance = require('../basics');
 var _ = Substance;
 
+var Node = window.Node;
+
 function HtmlImporter( config ) {
-
   this.config = config || {};
-
   this.nodeTypes = [];
-
   this.blockTypes = [];
-
   this.inlineTypes = [];
-
   // register converters defined in schema
   if (config.schema) {
     config.schema.each(function(NodeClass) {
@@ -8698,8 +8698,6 @@ function HtmlImporter( config ) {
       }
     }, this);
   }
-
-  this.$ = window.$;
 }
 
 HtmlImporter.Prototype = function HtmlImporterPrototype() {
@@ -8728,6 +8726,10 @@ HtmlImporter.Prototype = function HtmlImporterPrototype() {
       state.containerNode = containerNode;
     }
     this.state = state;
+  };
+
+  this.createElement = function(tagName) {
+    return global.document.createElement(tagName);
   };
 
   this.convert = function(rootEl, doc, containerId) {
@@ -8759,7 +8761,7 @@ HtmlImporter.Prototype = function HtmlImporterPrototype() {
   };
 
   this.convertProperty = function(doc, path, html) {
-    var el = window.document.createElement('div');
+    var el = this.createElement('div');
     el.innerHTML = html;
     this.initialize(doc, el);
     var text = this.annotatedText(el, path);
@@ -8811,16 +8813,16 @@ HtmlImporter.Prototype = function HtmlImporterPrototype() {
           containerNode.show(node.id);
         }
       } else {
-        if (el.nodeType === window.Node.COMMENT_NODE) {
+        if (el.nodeType === Node.COMMENT_NODE) {
           // skip comment nodes on block level
-        } else if (el.nodeType === window.Node.TEXT_NODE) {
+        } else if (el.nodeType === Node.TEXT_NODE) {
           var text = el.textContent;
           if (/^\s*$/.exec(text)) continue;
           // If we find text nodes on the block level we wrap
           // it into a paragraph element (or what is configured as default block level element)
           childIterator.back();
           this.wrapInlineElementsIntoBlockElement(childIterator);
-        } else if (el.nodeType === window.Node.ELEMENT_NODE) {
+        } else if (el.nodeType === Node.ELEMENT_NODE) {
           // NOTE: hard to tell if unsupported nodes on this level
           // should be treated as inline or not.
           // ATM we only support spans as entry to the catch-all implementation
@@ -8841,7 +8843,7 @@ HtmlImporter.Prototype = function HtmlImporterPrototype() {
     var state = this.state;
     var doc = state.doc;
     var containerNode = state.containerNode;
-    var wrapper = window.document.createElement('div');
+    var wrapper = global.document.createElement('div');
     while(childIterator.hasNext()) {
       var el = childIterator.next();
       var blockType = this._getBlockTypeForElement(el);
@@ -8926,7 +8928,7 @@ HtmlImporter.Prototype = function HtmlImporterPrototype() {
       var el = iterator.next();
       var text = "";
       // Plain text nodes...
-      if (el.nodeType === window.Node.TEXT_NODE) {
+      if (el.nodeType === Node.TEXT_NODE) {
         text = this._prepareText(state, el.textContent);
         if (text.length) {
           // Note: text is not merged into the reentrant state
@@ -8934,10 +8936,10 @@ HtmlImporter.Prototype = function HtmlImporterPrototype() {
           context.text = context.text.concat(text);
           context.offset += text.length;
         }
-      } else if (el.nodeType === window.Node.COMMENT_NODE) {
+      } else if (el.nodeType === Node.COMMENT_NODE) {
         // skip comment nodes
         continue;
-      } else if (el.nodeType === window.Node.ELEMENT_NODE) {
+      } else if (el.nodeType === Node.ELEMENT_NODE) {
         var inlineType = this._getInlineTypeForElement(el);
         if (!inlineType) {
           var blockType = this._getInlineTypeForElement(el);
@@ -9015,9 +9017,9 @@ HtmlImporter.Prototype = function HtmlImporterPrototype() {
   };
 
   this._getDomNodeType = function(el) {
-    if (el.nodeType === window.Node.TEXT_NODE) {
+    if (el.nodeType === Node.TEXT_NODE) {
       return "text";
-    } else if (el.nodeType === window.Node.COMMENT_NODE) {
+    } else if (el.nodeType === Node.COMMENT_NODE) {
       return "comment";
     } else if (el.tagName) {
       return el.tagName.toLowerCase();
@@ -9086,6 +9088,7 @@ HtmlImporter.ChildNodeIterator.prototype = new HtmlImporter.ChildNodeIterator.Pr
 
 module.exports = HtmlImporter;
 
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"../basics":115}],141:[function(require,module,exports){
 'use strict';
 
@@ -13513,13 +13516,7 @@ TextProperty.Prototype = function() {
 
     var annotator = new Annotator();
     annotator.onText = function(context, text) {
-      var chars = text.split('');
-      for (var i = 0; i < chars.length; i++) {
-        var el = document.createElement('span');
-        el.classList.add('char');
-        el.innerHTML = chars[i];
-        context.children.push(el);
-      }
+      context.children.push(text);
     };
     annotator.onEnter = function(entry) {
       var node = entry.node;
