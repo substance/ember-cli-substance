@@ -1,3 +1,7 @@
+# STALLED
+
+Maybe we will pick this up again in future.
+
 # Ember-cli-substance
 
 This README outlines the details of collaborating on this Ember addon.
